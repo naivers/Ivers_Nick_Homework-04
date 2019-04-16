@@ -1,0 +1,183 @@
+---
+title: "Ivers_Nick_Homework-04"
+author: "Nick Ivers"
+date: "4/7/2019"
+output: html_document
+---
+
+
+
+
+
+```{r setup, include=FALSE}'
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+<h2> Homework 04 2</h2>
+
+<p>Objective:</p>
+<p>When we initially discussed the central limit theorem and confidence intervals, we showed how we could use bootstrapping to estimate standard errors and confidence intervals around certain parameter values, like the mean. Using bootstrapping, we could also do the same for estimating standard errors and CIs around regression parameters, such as β coefficients.</p>
+
+
+
+<h4>[1] Using the “KamilarAndCooperData.csv” dataset, run a linear regression looking at log(HomeRange_km2) in relation to log(Body_mass_female_mean) and report your β coeffiecients (slope and intercept). 4</h4>
+
+
+
+#Load in the Kamilar and Cooper Dataset
+```{r}
+Kamilar_Cooper <- read.csv("~/Desktop/Development/Assignment_4/Kamilar_Cooper.csv")
+KC <- Kamilar_Cooper
+data=na.omit(KC)
+```
+#Run a basic linear model to see the initial pattern
+```{r}
+plot(data = KC, log(HomeRange_km2) ~ log(Body_mass_female_mean))
+```
+
+#Run a linear model of the interaction
+```{r}
+m1 <- lm(log(HomeRange_km2) ~ log(Body_mass_female_mean), data = KC)
+m1
+#model output: Beta0(Intercept) = -9.441
+            # Beta 1 = 1.036
+#calculate the standard error for the model            
+print(coef(summary(m1))[,"Std. Error"])
+#Standard Error from m1 linear model:
+#Intercept = 1.6380707    
+#log(Body_Mass_Female) = 0.1868741
+
+confint(m1)
+#OUTPUT:
+#                                 2.5 %    97.5 %
+#  (Intercept)                -12.7511475 -5.956846
+#log(Body_mass_female_mean)   0.6364542  1.411560
+
+
+```
+
+<h4>[2] Then, use bootstrapping to sample from your data 1000 times with replacement, each time fitting the same model and calculating the appropriate coefficients. This generates a sampling distribution for each β coefficient. Plot a histogram of these sampling distributions. 4</h4>
+
+
+Using 'car' R Package, I will run a total of 1000 models, default with replacement, output includes sampling distributions and standard error for each Beta coefficient
+
+
+
+```{r}
+#from https://rdrr.io/cran/car/man/Boot.html
+library(car)
+#error message during knit indicated i need to remove NA from m1
+data=na.omit(m1)
+#Total of 1000 models, default with replacement, output includes sampling distributions and standard error for each Beta coefficient
+m2 <- Boot(m1, R=999, method=c("case"))
+summary(m2)
+#Output
+#Number of bootstrap replications R = 1000 
+#                           original bootBias  bootSE bootMed
+#(Intercept)                  -9.354 -0.19034 1.62758 -9.4704
+#log(Body_mass_female_mean)    1.024  0.01936 0.18235  1.0344
+```
+
+The 'car' package also automatically calculates the confidence intervals.
+```{r}
+confint(m2)
+#Output
+#Bootstrap bca confidence intervals
+#                                 2.5 %    97.5 %
+#(Intercept)                -12.1746077 -5.901777
+#log(Body_mass_female_mean)   0.6343979  1.348828
+```
+
+From here I can plot a histogram of the sampling distributions from all 1000 models.
+```{r}
+#Now plot a histogram of the sampling distributions
+hist(m2)
+```
+
+<h4>[3] Estimate the standard error for each of your β coefficients as the standard deviation of the sampling distribution from your bootstrap. 4</h4>
+ 
+ 
+ First I will look at the summary statistics produced through the 'car' package.
+```{r}
+ summary(m2)
+ #Output
+#Number of bootstrap replications R = 1000 
+#                           original bootBias  bootSE bootMed
+#(Intercept)                  -9.354 -0.19034 1.62758 -9.4704
+#log(Body_mass_female_mean)    1.024  0.01936 0.18235  1.0344
+ 
+```
+
+Next, I will create a dataframe of the model output for each variable. Here 'intercept' is equivalent to 'log(HomeRange_km2)'. 
+
+```{r}
+# I want to pull out the results for each iteration of the bootstrap. 
+#Should be a matrix with 1000 rows (1000 iterations), and 2 columns, one for each B coefficient
+m2_rep_results <- m2$t
+m2_rep_results <- as.data.frame(m2_rep_results)
+```
+
+Now I can calculate the standard deviation from the 100 iterations of the bootstrapped model. 
+```{r}
+sd_m2_intercept <- sd(m2_rep_results$`(Intercept)`)
+print(sd_m2_intercept)
+
+sd_m2_bodymass <- sd(m2_rep_results$`log(Body_mass_female_mean)`)
+print(sd_m2_bodymass)
+```
+
+Finally, calculate the standard error of the mean, using the previously generated standard deviation(s). 
+```{r}
+se_m2_intercept <- sd_m2_intercept/sqrt(length(m2_rep_results))
+print(se_m2_intercept)
+#Output: 1.150876
+
+se_m2_bodymass <- sd_m2_bodymass/sqrt(length(m2_rep_results))
+print(se_m2_bodymass)
+#Output: 0.128893
+
+```
+
+
+<h4>[4] Also determine the 95% CI for each of your β coefficients based on the appropriate quantiles from your sampling distribution. 4</h4>
+
+```{r}
+
+# 'boot' R package should have already generated the confidence interval. I just need to call it.
+library(boot)
+boot.ci(m2, conf=0.95, type="basic")
+#95% CI = (-12.251, -6.010)
+boot.ci(m2, conf=0.95, type="bca")
+#95% CI = (-12.175, -5.902)
+
+
+```
+
+
+<h4>[5] How does your answer to part [3] compare to the SE estimated from your entire dataset using the formula for standard error implemented in lm()? 4</h4>
+
+<h3> Standard Errors   3</h3>
+           | SE log(HomeRange_km2)  | SE log(Body_mass_female_mean)
+-----------|------------------------|------------------------------
+
+linear model | 1.6380707   |  0.1868741
+bootstrapped |   1.150876  |  0.1289406
+
+
+The Standard Errors are quite similar between the original dataset used in the linear model, and the dataset generated through the bootstrapping process. The values generated through bootstrapping are slightly lower than those generated from teh entire dataset in the linear model. It is possible that by sampling from the dataset through 1000 iterations the data became more normal and therefore had a smaller standard error. 
+
+
+
+<h4>[6] How does your answer to part [4] compare to the 95% CI estimated from your entire dataset? 4</h4>
+
+<h3> Confidence Intervals   3</h3>
+           | SE log(HomeRange_km2)  | SE log(Body_mass_female_mean)
+-----------|------------------------|------------------------------
+
+linear model | -12.1746077 , -5.901777 |  0.6364542  1.411560
+bootstrapped |  -12.175,  -5.902  | 
+
+
+The 95% confidence intervals are equivalent when comparing the entire dataset with the dataset generated through bootstrapping. 
+
+
